@@ -196,7 +196,7 @@ describe JRuby::Rack::RailsBooter do
       app.config.action_controller.should_receive(:relative_url_root=).with("/blah")
       init = Rails::Railtie.initializers.detect {|i| i.first =~ /url/}
       init.should_not be_nil
-      init[1].should == [{:after => "action_controller.set_configs"}]
+      init[1].should == [{:before => "action_controller.set_configs"}]
       init.last.call(app)
     end
   end
