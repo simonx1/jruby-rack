@@ -51,7 +51,7 @@ public class RackFilter implements Filter {
         ResponseStatusCapture capture      = new ResponseStatusCapture(httpResponse);
         chain.doFilter(httpRequest, capture);
         if (capture.isError()) {
-            httpResponse.reset();
+            httpResponse.setStatus(200);
             request.setAttribute(RackEnvironment.DYNAMIC_REQS_ONLY, Boolean.TRUE);
             dispatcher.process((HttpServletRequest) request, httpResponse);
         }
