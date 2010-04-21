@@ -22,7 +22,7 @@ module JRuby::Rack
       app.config.logger.instance_variable_set "@log", JRuby::Rack.booter.logdev
     end
 
-    initializer "set_relative_url_root", :after => "action_controller.set_configs" do |app|
+    initializer "set_relative_url_root", :before => "action_controller.set_configs" do |app|
       path = JRuby::Rack.booter.rack_context.getContextPath
       if path && !path.empty?
         ENV['RAILS_RELATIVE_URL_ROOT'] = path
