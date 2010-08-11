@@ -23,11 +23,17 @@ module JRuby::Rack
     end
 
     initializer "set_relative_url_root", :before => "action_controller.set_configs" do |app|
-      path = JRuby::Rack.booter.rack_context.getContextPath
+      path = nil
+      begin
+        path = JRuby::Rack.booter.rack_context.getContextPath
+      rescue Exception
+        path = JRuby::Rack.booter.rack_context.getInitParameter('app-context-path')
+      end
       if path && !path.empty?
         ENV['RAILS_RELATIVE_URL_ROOT'] = path
         app.config.action_controller.relative_url_root = path
       end
+
     end
   end
 end
