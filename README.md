@@ -159,6 +159,9 @@ web.xml.
   to 'production'.
 - `merb.environment`: Specify the merb environment to run. Defaults to
   `production`.
+- `app-context-path`: For older application servers based on Server 2.4,
+specifies the application context path. For AS based on Server 2.5+ it
+is being ignored and the value is taken from ServletContext.
 
 # Building
 
