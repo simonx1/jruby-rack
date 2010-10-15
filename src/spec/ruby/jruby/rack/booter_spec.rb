@@ -5,13 +5,12 @@
 # See the file LICENSE.txt for details.
 #++
 
-require File.dirname(__FILE__) + '/../../spec_helper'
+require 'spec_helper'
 require 'jruby/rack/booter'
 
 describe JRuby::Rack::Booter do
   before :each do
-    @rack_context.stub!(:getInitParameter).and_return nil
-    @rack_context.stub!(:getRealPath).and_return "/"
+    $loaded_init_rb = nil
   end
 
   it "should determine the public html root from the 'public.root' init parameter" do
@@ -66,7 +65,15 @@ describe JRuby::Rack::Booter do
     ENV['RACK_ENV'].should == "production"
   end
 
-  it "should set Gem.path to the value of gem_path" do
+  it "should prepend gem_path to ENV['GEM_PATH']  " do
+    ENV['GEM_PATH'] = '/other/gems'
+    @rack_context.should_receive(:getRealPath).with("/WEB-INF").and_return "/blah"
+    create_booter.boot!
+    ENV['GEM_PATH'].should == "/blah/gems#{File::PATH_SEPARATOR}/other/gems"
+  end
+
+  it "should set ENV['GEM_PATH'] to the value of gem_path if ENV['GEM_PATH'] is not present" do
+    ENV['GEM_PATH'] = nil
     @rack_context.should_receive(:getRealPath).with("/WEB-INF").and_return "/blah"
     create_booter.boot!
     ENV['GEM_PATH'].should == "/blah/gems"
@@ -76,6 +83,18 @@ describe JRuby::Rack::Booter do
     create_booter.boot!
     @rack_context.should_receive(:log).with(/hello/)
     @booter.logger.info "hello"
+  end
+
+  it "should load and execute ruby code in META-INF/init.rb if it exists" do
+    @rack_context.should_receive(:getResource).with("/META-INF/init.rb").and_return java.net.URL.new("file:#{File.expand_path('../init.rb', __FILE__)}")
+    create_booter.boot!
+    $loaded_init_rb.should == true
+  end
+
+  it "should load and execute ruby code in WEB-INF/init.rb if it exists" do
+    @rack_context.should_receive(:getResource).with("/WEB-INF/init.rb").and_return java.net.URL.new("file:#{File.expand_path('../init.rb', __FILE__)}")
+    create_booter.boot!
+    $loaded_init_rb.should == true
   end
 end
 

@@ -5,7 +5,7 @@
 # See the file LICENSE.txt for details.
 #++
 
-require File.dirname(__FILE__) + '/../../spec_helper'
+require 'spec_helper'
 require 'action_controller'
 require 'active_record'
 require 'jruby/rack/queues'
@@ -16,10 +16,6 @@ describe JRuby::Rack::Queues do
     @queue_manager = mock "queue manager"
     @servlet_context.stub!(:getAttribute).and_return @queue_manager
     @registry = JRuby::Rack::Queues::QueueRegistry.new
-  end
-
-  after :each do
-    $servlet_context = nil
   end
 
   def mock_connection

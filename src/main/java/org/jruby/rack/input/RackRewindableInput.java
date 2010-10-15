@@ -70,6 +70,7 @@ public class RackRewindableInput extends RackBaseInput {
         private ByteBuffer memoryBuffer;
         private boolean full;
 
+        @SuppressWarnings("empty-statement")
         private MemoryBufferRackInput(ReadableByteChannel input) throws IOException {
             memoryBuffer = ByteBuffer.allocate(getBufferSize());
             while (input.read(memoryBuffer) > 0 && memoryBuffer.hasRemaining());
@@ -111,7 +112,11 @@ public class RackRewindableInput extends RackBaseInput {
                     }
                     return getRuntime().newString(new ByteList(bytes));
                 } else {
-                    return RubyString.newEmptyString(getRuntime());
+                    if (count > 0) {
+                        return getRuntime().getNil();
+                    } else {
+                        return RubyString.newEmptyString(getRuntime());
+                    }
                 }
             } catch (IOException io) {
                 throw getRuntime().newIOErrorFromException(io);
@@ -174,6 +179,7 @@ public class RackRewindableInput extends RackBaseInput {
             super(getRuntime(), createTempfile(input, memoryBuffer));
         }
 
+        @Override
         public void close() {
             ((RubyTempfile) io).close_bang(getRuntime().getCurrentContext());
         }

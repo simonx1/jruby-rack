@@ -7,16 +7,26 @@
 
 require 'java'
 require 'spec'
+
 # add to load path for stubbed out action_controller, railtie classes
 $LOAD_PATH.unshift File.expand_path('../rails', __FILE__)
 
+WD_START = Dir.getwd
+
+java_import org.jruby.rack.RackContext
+java_import org.jruby.rack.RackServletContextListener
+java_import javax.servlet.ServletContext
+
 Spec::Runner.configure do |config|
   def mock_servlet_context
-    @rack_context ||= mock "rack context"
-    @servlet_context ||= mock "servlet context"
+    @rack_context ||= RackContext.impl {}
+    @servlet_context ||= ServletContext.impl {}
     [@rack_context, @servlet_context].each do |context|
       context.stub!(:log)
       context.stub!(:getInitParameter).and_return nil
+      context.stub!(:getRealPath).and_return "/"
+      context.stub!(:getResource).and_return nil
+      context.stub!(:getContextPath).and_return "/"
     end
     @servlet_config ||= mock("servlet config")
     @servlet_config.stub!(:getServletName).and_return("A Servlet")
@@ -31,17 +41,18 @@ Spec::Runner.configure do |config|
   end
 
   config.before :each do
+    @env_save = ENV.to_hash
     mock_servlet_context
-    @pwd = Dir.getwd
   end
 
   config.after :each do
-    Dir.chdir(@pwd) unless Dir.getwd == @pwd
+    (ENV.keys - @env_save.keys).each {|k| ENV.delete k}
+    @env_save.each {|k,v| ENV[k] = v}
+    Dir.chdir(WD_START) unless Dir.getwd == WD_START
+    $servlet_context = nil
   end
 end
 
-import org.jruby.rack.RackServletContextListener unless defined?(RackServletContextListener)
-import org.jruby.rack.RackContext unless defined?(RackContext)
 
 class StubInputStream < java.io.InputStream
   def initialize(val = "")

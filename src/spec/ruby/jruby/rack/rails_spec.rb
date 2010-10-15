@@ -5,18 +5,13 @@
 # See the file LICENSE.txt for details.
 #++
 
-require File.dirname(__FILE__) + '/../../spec_helper'
+require 'spec_helper'
 require 'jruby/rack/rails'
 require 'jruby/rack/rails/extensions'
 require 'cgi/session/java_servlet_store'
 class ::CGI::Session::PStore; end
 
 describe JRuby::Rack::RailsBooter do
-  before :each do
-    @rack_context.stub!(:getInitParameter).and_return nil
-    @rack_context.stub!(:getRealPath).and_return "/"
-  end
-
   it "should determine RAILS_ROOT from the 'rails.root' init parameter" do
     @rack_context.should_receive(:getInitParameter).with("rails.root").and_return "/WEB-INF"
     @rack_context.should_receive(:getRealPath).with("/WEB-INF").and_return "./WEB-INF"
@@ -30,6 +25,13 @@ describe JRuby::Rack::RailsBooter do
     @booter.app_path.should == "./WEB-INF"
   end
 
+  it "should leave ENV['RAILS_ENV'] as is if it was already set" do
+    ENV['RAILS_ENV'] = 'staging'
+    create_booter(JRuby::Rack::RailsBooter).boot!
+    ENV['RAILS_ENV'].should == 'staging'
+    @booter.rails_env.should == "staging"
+  end
+
   it "should determine RAILS_ENV from the 'rails.env' init parameter" do
     @rack_context.should_receive(:getInitParameter).with("rails.env").and_return "test"
     create_booter(JRuby::Rack::RailsBooter).boot!
@@ -39,6 +41,12 @@ describe JRuby::Rack::RailsBooter do
   it "should default RAILS_ENV to 'production'" do
     create_booter(JRuby::Rack::RailsBooter).boot!
     @booter.rails_env.should == "production"
+  end
+
+  it "should set RAILS_RELATIVE_URL_ROOT based on the servlet context path" do
+    @rack_context.should_receive(:getContextPath).and_return '/myapp'
+    create_booter(JRuby::Rack::RailsBooter).boot!
+    ENV['RAILS_RELATIVE_URL_ROOT'].should == '/myapp'
   end
 
   it "should determine the public html root from the 'public.root' init parameter" do
@@ -91,12 +99,9 @@ describe JRuby::Rack::RailsBooter do
 
   describe "Rails 2 environment" do
     before :all do
-      @wd = Dir.getwd
       mock_servlet_context
       $servlet_context = @servlet_context
-      @rack_context.stub!(:getInitParameter).and_return nil
-      @rack_context.stub!(:getRealPath).and_return "/"
-      @rack_context.stub!(:getContextPath).and_return "/foo"
+      @rack_context.should_receive(:getContextPath).and_return "/foo"
       create_booter(JRuby::Rack::RailsBooter) do |b|
         b.app_path = File.expand_path("../../../rails", __FILE__)
       end.boot!
@@ -104,7 +109,6 @@ describe JRuby::Rack::RailsBooter do
     end
 
     after :all do
-      Dir.chdir(@wd)
       $servlet_context = nil
     end
 
@@ -135,11 +139,8 @@ describe JRuby::Rack::RailsBooter do
 
   describe "Rails 3 environment" do
     before :all do
-      @wd = Dir.getwd
       mock_servlet_context
       $servlet_context = @servlet_context
-      @rack_context.stub!(:getInitParameter).and_return nil
-      @rack_context.stub!(:getRealPath).and_return "/"
       create_booter(JRuby::Rack::RailsBooter) do |b|
         b.app_path = File.expand_path("../../../rails3", __FILE__)
       end.boot!
@@ -148,7 +149,6 @@ describe JRuby::Rack::RailsBooter do
 
     after :all do
       $servlet_context = nil
-      Dir.chdir(@wd)
     end
 
     it "should set the application configuration's public path" do
@@ -174,12 +174,11 @@ describe JRuby::Rack::RailsBooter do
       dev = mock "logdev"
       dev.should_receive(:close)
       logger.log = dev
-      app = mock "app"
-      app.stub_chain(:config, :logger).and_return(logger)
+      Rails.stub!(:logger).and_return(logger)
       init = Rails::Railtie.initializers.detect {|i| i.first =~ /log/}
       init.should_not be_nil
       init[1].should == [{:after => :initialize_logger}]
-      init.last.call(app)
+      init.last.call(nil)
       logger.log.should be_instance_of(JRuby::Rack::ServletLog)
     end
 
@@ -189,8 +188,8 @@ describe JRuby::Rack::RailsBooter do
       @booter.to_app.should == app
     end
 
-    it "should set config.action_controller.relative_url_root" do
-      @rack_context.stub!(:getContextPath).and_return "/blah"
+    it "should set config.action_controller.relative_url_root based on ENV['RAILS_RELATIVE_URL_ROOT']" do
+      ENV['RAILS_RELATIVE_URL_ROOT'] = '/blah'
       app = mock "app"
       app.stub_chain(:config, :action_controller, :relative_url_root)
       app.config.action_controller.should_receive(:relative_url_root=).with("/blah")

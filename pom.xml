@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.jruby.rack</groupId>
   <artifactId>jruby-rack</artifactId>
-  <version>0.9.8.dev-SNAPSHOT</version>
+  <version>1.0.4.dev-SNAPSHOT</version>
   <name>JRuby-Rack</name>
   <url>http://jruby-rack.kenai.com/</url>
   <description>
@@ -13,12 +13,12 @@
   </description>
 
   <properties>
-    <jruby.version>1.4.0</jruby.version>
+    <jruby.version>1.5.1</jruby.version>
   </properties>
 
   <issueManagement>
     <system>JIRA</system>
-    <url>http://jira.codehaus.org/browse/JRUBY</url>
+    <url>http://kenai.com/jira/browse/JRUBY_RACK</url>
   </issueManagement>
 
   <scm>
@@ -104,6 +104,18 @@
       <groupId>org.apache.geronimo.specs</groupId>
       <artifactId>geronimo-jms_1.1_spec</artifactId>
       <version>1.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging-api</artifactId>
+      <version>1.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.6.0</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

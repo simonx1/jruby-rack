@@ -99,6 +99,9 @@ public class PoolingRackApplicationFactory implements RackApplicationFactory {
             if (maximum != null && applicationPool.size() >= maximum) {
                 return;
             }
+            if (applicationPool.contains(app)){
+                return;
+            }
             applicationPool.add(app);
             if (permits != null) {
                 permits.release();

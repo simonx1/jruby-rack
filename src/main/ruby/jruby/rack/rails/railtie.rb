@@ -14,26 +14,19 @@ module JRuby::Rack
     end
 
     initializer "set_servlet_logger", :after => :initialize_logger do |app|
-      class << app.config.logger # Make these accessible to wire in the log device
+      class << Rails.logger # Make these accessible to wire in the log device
         public :instance_variable_get, :instance_variable_set
       end
-      old_device = app.config.logger.instance_variable_get "@log"
+      old_device = Rails.logger.instance_variable_get "@log"
       old_device.close rescue nil
-      app.config.logger.instance_variable_set "@log", JRuby::Rack.booter.logdev
+      Rails.logger.instance_variable_set "@log", JRuby::Rack.booter.logdev
     end
 
-    initializer "set_relative_url_root", :before => "action_controller.set_configs" do |app|
-      path = nil
-      begin
-        path = JRuby::Rack.booter.rack_context.getContextPath
-      rescue Exception
-        path = JRuby::Rack.booter.rack_context.getInitParameter('app-context-path')
+    initializer "set_relative_url_root", :after => "action_controller.set_configs" do |app|
+      if ENV['RAILS_RELATIVE_URL_ROOT']
+        app.config.action_controller.relative_url_root = ENV['RAILS_RELATIVE_URL_ROOT']
+        ActionController::Base.config.relative_url_root = ENV['RAILS_RELATIVE_URL_ROOT']
       end
-      if path && !path.empty?
-        ENV['RAILS_RELATIVE_URL_ROOT'] = path
-        app.config.action_controller.relative_url_root = path
-      end
-
     end
   end
 end

@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/../spec_helper'
+require 'spec_helper'
 
 import org.jruby.rack.RackTag
 import org.jruby.rack.fake.FakePageContext
@@ -60,8 +60,7 @@ describe RackTag do
   end
 
   it 'should create a request wrapper and invoke the application' do
-    pending "JRuby Java integration issue"
-    @application.should_receive(:call).with(an_instance_of(ServletRequest)).and_return @result
+    @application.should_receive(:call).and_return @result
     @tag.doEndTag
   end
 

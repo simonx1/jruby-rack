@@ -9,6 +9,7 @@ raise "JRuby-Rack must be built with JRuby: try again with `jruby -S rake'" unle
 
 require 'rake/clean'
 require 'date'
+require 'java'
 
 def compile_classpath
   if ENV['JRUBY_PARENT_CLASSPATH']
@@ -51,7 +52,7 @@ task :unpack_gem => "target" do |t|
       mkdir_p "vendor"
       require 'rubygems/installer'
       path = File.basename(gem_file).sub(/\.gem$/, '')
-      Gem::Installer.new(gem_file, :unpack => true).unpack path
+      Gem::Installer.new(gem_file, :unpack => true, :install_dir => path).unpack path
       rack_dir = FileList["rack-*"].first
       File.open("vendor/rack.rb", "w") do |f|
         f << "dir = File.dirname(__FILE__)\n"
@@ -111,7 +112,7 @@ task :speconly do
     spec = ENV['SPEC'] || File.join(Dir.getwd, "src/spec/ruby/**/*_spec.rb")
     opts.push *FileList[spec].to_a
     ENV['CLASSPATH'] = test_classpath.join(File::PATH_SEPARATOR)
-    ruby "-S", "spec", *opts
+    ruby "-Isrc/spec/ruby", "-S", "spec", *opts
   end
 end
 
@@ -120,10 +121,11 @@ task :spec => [:compile, :resources, :compilespec, :speconly]
 
 task :test => :spec
 
-file "target/jruby-rack-#{JRuby::Rack::VERSION}.jar" do |t|
+file "target/jruby-rack-#{JRuby::Rack::VERSION}.jar" => :always_build do |t|
   Rake::Task['spec'].invoke
   sh "jar cf #{t.name} -C target/classes ."
 end
+task :always_build              # dummy task to force jar to get built
 
 desc "Create the jar"
 task :jar => [:spec, "target/jruby-rack-#{JRuby::Rack::VERSION}.jar"]
@@ -150,6 +152,7 @@ module JRubyJars
   def self.jruby_rack_jar_path
     File.expand_path("../jruby-rack-#{JRuby::Rack::VERSION}.jar", __FILE__)
   end
+  require jruby_rack_jar_path
 end
 }
   end
@@ -166,6 +169,9 @@ task :gem => ["target/jruby-rack-#{JRuby::Rack::VERSION}.jar",
               "target/gem/lib/jruby/rack/version.rb"] do |t|
   cp FileList["History.txt", "LICENSE.txt", "README.md"], "target/gem"
   cp t.prerequisites.first, "target/gem/lib"
+  if (jars = FileList["target/gem/lib/*.jar"].to_a).size > 1
+    abort "Too many jars! #{jars.map{|j| File.basename(j)}.inspect}\nRun a clean build first"
+  end
   Dir.chdir("target/gem") do
     gemspec = Gem::Specification.new do |s|
       s.name = %q{jruby-rack}

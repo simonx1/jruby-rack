@@ -13,18 +13,26 @@ module JRuby::Rack
 
     def initialize(rack_context = nil)
       super
-      @rails_env = @rack_context.getInitParameter('rails.env') || 'production'
+      @rails_env = ENV['RAILS_ENV'] || @rack_context.getInitParameter('rails.env') || 'production'
     end
 
     def boot!
       super
       ENV['RAILS_ROOT'] = app_path
       ENV['RAILS_ENV'] = @rails_env
+      setup_relative_url_root
       silence_warnings { Object.const_set("PUBLIC_ROOT", public_path) }
       if File.exist?(File.join(app_path, "config", "application.rb"))
         extend Rails3Environment
       else
         extend Rails2Environment
+      end
+    end
+
+    def setup_relative_url_root
+      relative_url_root = @rack_context.getContextPath
+      if relative_url_root && !relative_url_root.empty? && relative_url_root != '/'
+        ENV['RAILS_RELATIVE_URL_ROOT'] = relative_url_root
       end
     end
 
@@ -36,6 +44,7 @@ module JRuby::Rack
     module Rails2Environment
       def to_app
         load_environment
+        require 'rack/adapter/rails'
         RailsRequestSetup.new(::Rack::Adapter::Rails.new(options), self)
       end
 
@@ -144,10 +153,8 @@ module JRuby::Rack
       end
 
       def setup_relative_url_root
-        relative_url_root = rack_context.getContextPath
-        if relative_url_root && !relative_url_root.empty? && relative_url_root != '/'
-          ENV['RAILS_RELATIVE_URL_ROOT'] = relative_url_root
-          ActionController::Base.relative_url_root = relative_url_root if ActionController::Base.respond_to?(:relative_url_root=)
+        if ENV['RAILS_RELATIVE_URL_ROOT'] && ActionController::Base.respond_to?(:relative_url_root=)
+          ActionController::Base.relative_url_root = ENV['RAILS_RELATIVE_URL_ROOT']
         end
       end
     end

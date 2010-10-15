@@ -5,7 +5,7 @@
 # See the file LICENSE.txt for details.
 #++
 
-require File.dirname(__FILE__) + '/../spec_helper'
+require 'spec_helper'
 
 import org.jruby.rack.DefaultRackApplication
 
@@ -37,9 +37,49 @@ describe DefaultRackApplicationFactory do
     @app_factory = DefaultRackApplicationFactory.new
   end
 
+  it "should receive a rackup script via the 'rackup' parameter" do
+    @rack_context.should_receive(:getInitParameter).with('rackup').and_return 'run MyRackApp'
+    @app_factory.init @rack_context
+    @app_factory.rackup_script.should == 'run MyRackApp'
+  end
+
+  it "should look for a rackup script via the 'rackup.path' parameter" do
+    @rack_context.should_receive(:getInitParameter).with('rackup.path').and_return '/WEB-INF/hello.ru'
+    @rack_context.should_receive(:getResourceAsStream).with('/WEB-INF/hello.ru').and_return StubInputStream.new("run MyRackApp")
+    @app_factory.init @rack_context
+    @app_factory.rackup_script.should == 'run MyRackApp'
+  end
+
+  it "should look for a config.ru rackup script below /WEB-INF" do
+    @rack_context.should_receive(:getResourcePaths).with('/WEB-INF/').and_return(
+      java.util.HashSet.new(%w(app/ config/ config.ru lib/ vendor/).map{|f| "/WEB-INF/#{f}"}))
+    @rack_context.should_receive(:getResourceAsStream).with('/WEB-INF/config.ru').and_return StubInputStream.new("run MyRackApp")
+    @app_factory.init @rack_context
+    @app_factory.rackup_script.should == 'run MyRackApp'
+  end
+
+  it "should look for a config.ru script in subdirectories of /WEB-INF" do
+    @rack_context.stub!(:getResourcePaths).and_return java.util.HashSet.new
+    @rack_context.should_receive(:getResourcePaths).with('/WEB-INF/').and_return(
+      java.util.HashSet.new(%w(app/ config/ lib/ vendor/).map{|f| "/WEB-INF/#{f}"}))
+    @rack_context.should_receive(:getResourcePaths).with('/WEB-INF/lib/').and_return(
+      java.util.HashSet.new(["/WEB-INF/lib/config.ru"]))
+    @rack_context.should_receive(:getResourceAsStream).with('/WEB-INF/lib/config.ru').and_return StubInputStream.new("run MyRackApp")
+    @app_factory.init @rack_context
+    @app_factory.rackup_script.should == 'run MyRackApp'
+  end
+
+  it "should handle config.ru files with a coding: pragma" do
+    @rack_context.should_receive(:getInitParameter).with('rackup.path').and_return '/WEB-INF/hello.ru'
+    @rack_context.should_receive(:getResourceAsStream).with('/WEB-INF/hello.ru').and_return StubInputStream.new("# coding: us-ascii\nrun MyRackApp")
+    @app_factory.init @rack_context
+    @app_factory.rackup_script.should == "# coding: us-ascii\nrun MyRackApp"
+  end
+
   describe "" do
     before :each do
       @rack_context.stub!(:getInitParameter).and_return nil
+      @rack_context.stub!(:getResourcePaths).and_return nil
       @app_factory.init @rack_context
     end
 
@@ -74,14 +114,14 @@ describe DefaultRackApplicationFactory do
     end
 
     it "should create a Ruby object from the script snippet given" do
-      @rack_context.stub!(:getInitParameter).and_return("require 'rack/lobster'; Rack::Lobster.new")
+      @rack_context.should_receive(:getInitParameter).with('rackup').and_return("require 'rack/lobster'; Rack::Lobster.new")
       @app_factory.init @rack_context
       object = @app_factory.newApplication
       object.respond_to?(:call).should == true
     end
 
     it "should raise an exception if creation failed" do
-      @rack_context.stub!(:getInitParameter).and_return("raise 'something went wrong'")
+      @rack_context.should_receive(:getInitParameter).with('rackup').and_return("raise 'something went wrong'")
       @app_factory.init @rack_context
       object = @app_factory.newApplication
       lambda { object.init }.should raise_error
@@ -90,7 +130,7 @@ describe DefaultRackApplicationFactory do
 
   describe "getApplication" do
     it "should create an application and initialize it" do
-      @rack_context.stub!(:getInitParameter).and_return("raise 'init was called'")
+      @rack_context.should_receive(:getInitParameter).with('rackup').and_return("raise 'init was called'")
       @app_factory.init @rack_context
       lambda { @app_factory.getApplication }.should raise_error
     end
@@ -124,7 +164,6 @@ describe PoolingRackApplicationFactory do
 
   it "should initialize the delegate factory when initialized" do
     @factory.should_receive(:init).with(@rack_context)
-    @rack_context.stub!(:getInitParameter).and_return nil
     @pool.init(@rack_context)
   end
 
@@ -164,7 +203,6 @@ describe PoolingRackApplicationFactory do
       app.should_receive(:init)
       app
     end
-    @rack_context.stub!(:getInitParameter).and_return nil
     @rack_context.should_receive(:getInitParameter).with("jruby.min.runtimes").and_return "1"
     @pool.init(@rack_context)
     @pool.getApplicationPool.size.should == 1
@@ -173,11 +211,20 @@ describe PoolingRackApplicationFactory do
   it "should not create any new applications beyond the maximum specified
   by the jruby.max.runtimes context parameter" do
     @factory.should_receive(:init).with(@rack_context)
-    @rack_context.stub!(:getInitParameter).and_return nil
     @rack_context.should_receive(:getInitParameter).with("jruby.max.runtimes").and_return "1"
     @pool.init(@rack_context)
     @pool.finishedWithApplication mock("app1")
     @pool.finishedWithApplication mock("app2")
+    @pool.getApplicationPool.size.should == 1
+  end
+
+  it "should not add an application back into the pool if it already exists" do
+    @factory.should_receive(:init).with(@rack_context)
+    @rack_context.should_receive(:getInitParameter).with("jruby.max.runtimes").and_return "4"
+    @pool.init(@rack_context)
+    rack_application_1 = mock("app1")
+    @pool.finishedWithApplication rack_application_1
+    @pool.finishedWithApplication rack_application_1
     @pool.getApplicationPool.size.should == 1
   end
 
@@ -188,7 +235,6 @@ describe PoolingRackApplicationFactory do
       app.should_receive(:init)
       app
     end
-    @rack_context.stub!(:getInitParameter).and_return nil
     @rack_context.should_receive(:getInitParameter).with("jruby.pool.minIdle").and_return "1"
     @rack_context.should_receive(:getInitParameter).with("jruby.pool.maxActive").and_return "2"
     @pool.init(@rack_context)
@@ -204,7 +250,6 @@ describe PoolingRackApplicationFactory do
       app.should_receive(:init)
       app
     end
-    @rack_context.stub!(:getInitParameter).and_return nil
     @rack_context.should_receive(:getInitParameter).with("jruby.min.runtimes").and_return "2"
     @rack_context.should_receive(:getInitParameter).with("jruby.max.runtimes").and_return "1"
     @pool.init(@rack_context)
