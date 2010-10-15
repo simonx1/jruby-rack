@@ -8,8 +8,7 @@ require 'jruby/rack/session_store'
 
 module ActionDispatch
   module Session
-    class JavaServletStore
-      Store = AbstractStore
+    class JavaServletStore < AbstractStore
       include JRuby::Rack::SessionStore
     end
   end

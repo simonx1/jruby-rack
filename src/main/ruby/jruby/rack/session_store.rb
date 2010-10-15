@@ -3,7 +3,7 @@ module JRuby::Rack
     RAILS_SESSION_KEY = "__current_rails_session"
 
     def self.included(base)
-      const_set(:AbstractStore, base.const_get(:Store))
+      const_set(:AbstractStore, base.superclass)
       session_hash_class = Class.new(AbstractStore::SessionHash) do
         def finish_save
           if @loaded || !@env[AbstractStore::ENV_SESSION_KEY].equal?(self)
@@ -102,5 +102,10 @@ module JRuby::Rack
     def close_session(env)
       (session = get_servlet_session(env)) and session.invalidate
     end
+
+    def destroy(env)
+      # nothing here
+    end
+
   end
 end
