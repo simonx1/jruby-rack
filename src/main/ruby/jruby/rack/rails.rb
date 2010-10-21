@@ -36,7 +36,6 @@ module JRuby::Rack
       rescue Exception
         relative_url_root = JRuby::Rack.booter.rack_context.getInitParameter('app-context-path')
       end
-      relative_url_root = @rack_context.getContextPath
       if relative_url_root && !relative_url_root.empty? && relative_url_root != '/'
         ENV['RAILS_RELATIVE_URL_ROOT'] = relative_url_root
       end
