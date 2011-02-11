@@ -9,7 +9,8 @@ require 'jruby/rack/session_store'
 
 module ActionController
   module Session
-    class JavaServletStore < AbstractStore
+    class JavaServletStore
+      Store = AbstractStore
       include JRuby::Rack::SessionStore
     end
   end

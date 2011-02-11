@@ -74,16 +74,10 @@ class JRuby::Rack::Response
       @body.each do |el|
         stream.write(el.to_java_bytes)
       end
-    rescue LocalJumpError, NativeException => e
-      if e.is_a?(LocalJumpError) || 
-         e.is_a?(NativeException) &&
-         ['java.net.SocketException', 'org.apache.catalina.connector.ClientAbortException'].include?(e.cause.java_class.to_s)
-        # HACK: deal with objects that don't comply with Rack specification
-        @body = [@body.to_s]
-        retry
-      else
-        raise e
-      end
+    rescue LocalJumpError => e
+      # HACK: deal with objects that don't comply with Rack specification
+      @body = [@body.to_s]
+      retry
     ensure
       @body.close if @body.respond_to?(:close)
     end
